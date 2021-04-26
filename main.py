@@ -10,6 +10,7 @@ from core.multicaller import *
 
 
 def get_args():
+    # Getting host name and address from program arguments
     import sys
     if len(sys.argv) < 3:
         return False
@@ -23,18 +24,21 @@ if args:
 else:
     nameserver = Pyro5.api.locate_ns()
 
+# Setting up the proxy and bundler
 uri = nameserver.lookup("bookingservice")
 proxy = Pyro5.api.Proxy(uri)
 
 multicaller = MultiCaller(proxy)
 bundler = StrongBundler(multicaller)
 
+# Registering commands
 bundler.register_command(multicaller.set_customer)
 bundler.register_command(multicaller.make_bookmark)
 bundler.register_command(multicaller.update_reservation_end)
 
 
 def get_strong_bundled_execution_time(iteration: int, caller, no_of_bookmarks):
+    # Setting all arguments beforehand
     username = str(iteration)
     # Getting random username
     name = ''.join(choice(string.ascii_letters) for _ in range(20))
@@ -49,15 +53,24 @@ def get_strong_bundled_execution_time(iteration: int, caller, no_of_bookmarks):
 
     caller.queue(multicaller.create_customer, username, name, phone_no)
     caller.queue(multicaller.set_customer, username)
+
+    # Normally, the result of this procedure would be assigned to a list
+    # Which the user could select from.
     caller.queue(multicaller.get_all_location_ids)
 
     for i in range(no_of_bookmarks):
         caller.queue(multicaller.make_bookmark, i + 1)
 
+    # The user would then look at location details, selecting a location from the list.
+    # However, to ensure choosing a random element doesn't interfere with the timing,
+    # a constant value is used here instead.
     caller.queue(multicaller.get_location_details, 1)
     reservation_id = caller.queue(multicaller.make_reservation,
                                   1, start_date, end_date)
     caller.queue(multicaller.update_reservation_end, reservation_id, updated_end_date)
+    # Normally, the result of this procedure would display a success or failure
+    # message to the user, however as this could interfere with timing, it has been
+    # omitted.
     caller.queue(multicaller.checkout)
 
     end = default_timer()
@@ -77,6 +90,8 @@ def get_weak_bundled_execution_time(iteration: int, caller, no_of_bookmarks):
 
     start = default_timer()
 
+    # Uses the same sequence as above
+
     caller.create_customer(username, name, phone_no)
     caller.set_customer(username)
     caller.get_all_location_ids()
@@ -94,6 +109,8 @@ def get_weak_bundled_execution_time(iteration: int, caller, no_of_bookmarks):
 
 
 def timing_loop(no_of_iterations, timing_func, caller, no_of_bookmarks):
+    # Gets the aggregate time for no_of_iterations number of the sequences
+    # Using the get bundled execution times functions above
     aggregate_time = 0
     for i in range(no_of_iterations):
         aggregate_time += timing_func(i, caller, no_of_bookmarks)
@@ -101,6 +118,8 @@ def timing_loop(no_of_iterations, timing_func, caller, no_of_bookmarks):
 
 
 def get_times(strong, weak, no_of_timings, no_of_iterations, no_of_bookmarks):
+    # Repeating the timing loop a given number of times with both the strong and weak
+    # bundling. Prints each time individually and the min/max/avg of all the times.
     strong_times = []
     weak_times = []
     for i in range(no_of_timings):
